@@ -1,0 +1,20 @@
+{
+  "title": "Налаштування метеостанції",
+  "heading": "Налаштування WiFi",
+  "label_ssid": "Назва мережі (SSID)",
+  "placeholder_ssid": "Оберіть або введіть назву мережі",
+  "label_password": "Пароль",
+  "placeholder_password": "Пароль WiFi",
+  "label_timezone": "Часовий пояс",
+  "btn_scan": "Сканувати",
+  "btn_submit": "Підключити",
+  "status_connecting": "Підключення…",
+  "status_success": "Підключено! Пристрій доступний за адресою:",
+  "status_failed_auth": "Невірний пароль. Спробуйте ще раз.",
+  "status_failed_not_found": "Мережу не знайдено. Спробуйте ще раз.",
+  "status_failed_generic": "Помилка підключення. Спробуйте ще раз.",
+  "scanning": "Пошук мереж…",
+  "no_networks": "Мережі не знайдено.",
+  "secure": "Захищена",
+  "open": "Відкрита"
+}

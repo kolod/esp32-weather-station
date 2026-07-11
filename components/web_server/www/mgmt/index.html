@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weather Station</title>
+<link rel="stylesheet" href="/mgmt.css">
+</head>
+<body>
+<header><h1>Weather Station</h1><span id="fw-version"></span></header>
+<main>
+  <section class="card readings">
+    <h2>Current Readings</h2>
+    <div class="reading-row">
+      <span class="value" id="temp-val">---</span>
+      <span class="unit" id="temp-unit">°C</span>
+    </div>
+    <div class="reading-row time-row">
+      <span class="value-sm" id="time-val">--:--</span>
+      <span class="badge" id="time-sync"></span>
+    </div>
+    <div id="wifi-status"></div>
+  </section>
+
+  <section class="card config">
+    <h2>Configuration</h2>
+    <label for="sel-tz">Timezone</label>
+    <div class="row">
+      <select id="sel-tz"></select>
+      <button id="btn-save-tz">Save</button>
+    </div>
+    <p class="hint">Button ← toggles LOCAL/UTC display | Button → toggles °C/°F</p>
+  </section>
+
+  <section class="card ota">
+    <h2>Firmware Update</h2>
+    <input type="file" id="fw-file" accept=".bin">
+    <button id="btn-upload" disabled>Upload</button>
+    <div id="ota-progress" class="hidden">
+      <progress id="ota-bar" value="0" max="100"></progress>
+      <span id="ota-pct">0%</span>
+    </div>
+    <div id="ota-status"></div>
+  </section>
+
+  <section class="card history">
+    <h2>Temperature History</h2>
+    <div class="row">
+      <span id="hist-count">-- records</span>
+      <a id="btn-csv" href="/api/history.csv" download="history.csv">Download CSV</a>
+    </div>
+    <div id="hist-table-wrap">
+      <table id="hist-table">
+        <thead><tr><th>Time</th><th>Temperature</th></tr></thead>
+        <tbody id="hist-body"></tbody>
+      </table>
+    </div>
+    <button id="btn-load-hist">Load last 100 records</button>
+  </section>
+</main>
+<script src="/mgmt.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "title": "Wetterstation Einrichtung",
+  "heading": "WLAN-Einrichtung",
+  "label_ssid": "Netzwerkname (SSID)",
+  "placeholder_ssid": "Netzwerk auswählen oder eingeben",
+  "label_password": "Passwort",
+  "placeholder_password": "WLAN-Passwort",
+  "label_timezone": "Zeitzone",
+  "btn_scan": "Suchen",
+  "btn_submit": "Verbinden",
+  "status_connecting": "Verbinde…",
+  "status_success": "Verbunden! Gerät ist erreichbar unter:",
+  "status_failed_auth": "Falsches Passwort. Bitte erneut versuchen.",
+  "status_failed_not_found": "Netzwerk nicht gefunden. Bitte erneut versuchen.",
+  "status_failed_generic": "Verbindung fehlgeschlagen. Bitte erneut versuchen.",
+  "scanning": "Suche nach Netzwerken…",
+  "no_networks": "Keine Netzwerke gefunden.",
+  "secure": "Gesichert",
+  "open": "Offen"
+}

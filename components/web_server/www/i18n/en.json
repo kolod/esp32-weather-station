@@ -1,0 +1,20 @@
+{
+  "title": "Weather Station Setup",
+  "heading": "WiFi Setup",
+  "label_ssid": "Network name (SSID)",
+  "placeholder_ssid": "Select or type network name",
+  "label_password": "Password",
+  "placeholder_password": "Network password",
+  "label_timezone": "Timezone",
+  "btn_scan": "Scan",
+  "btn_submit": "Connect",
+  "status_connecting": "Connecting…",
+  "status_success": "Connected! Device is at:",
+  "status_failed_auth": "Wrong password. Please try again.",
+  "status_failed_not_found": "Network not found. Please try again.",
+  "status_failed_generic": "Connection failed. Please try again.",
+  "scanning": "Scanning for networks…",
+  "no_networks": "No networks found.",
+  "secure": "Secured",
+  "open": "Open"
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title id="page-title">Weather Station Setup</title>
+<link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+<div class="card">
+  <h1 id="heading">WiFi Setup</h1>
+
+  <div class="field">
+    <label id="lbl-ssid" for="ssid">Network name (SSID)</label>
+    <div class="ssid-row">
+      <input id="ssid" type="text" autocomplete="off" spellcheck="false">
+      <button id="btn-scan" type="button">Scan</button>
+    </div>
+    <datalist id="networks"></datalist>
+  </div>
+
+  <div class="field">
+    <label id="lbl-pass" for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+  </div>
+
+  <div class="field">
+    <label id="lbl-tz" for="timezone">Timezone</label>
+    <select id="timezone"></select>
+  </div>
+
+  <button id="btn-submit" type="button">Connect</button>
+  <div id="status" class="status hidden"></div>
+</div>
+<script src="/portal.js"></script>
+</body>
+</html>

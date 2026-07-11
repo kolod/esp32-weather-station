@@ -1,0 +1,24 @@
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;min-height:100vh;
+     display:flex;align-items:center;justify-content:center;color:#e0e0e0}
+.card{background:#16213e;border-radius:12px;padding:28px;width:min(94vw,380px);
+      box-shadow:0 4px 24px rgba(0,0,0,.5)}
+h1{font-size:1.3rem;margin-bottom:20px;color:#4fc3f7}
+.field{margin-bottom:16px}
+label{display:block;font-size:.85rem;margin-bottom:4px;color:#90caf9}
+input,select{width:100%;padding:9px 12px;border:1px solid #2a4070;border-radius:6px;
+            background:#0f3460;color:#e0e0e0;font-size:1rem;outline:none}
+input:focus,select:focus{border-color:#4fc3f7}
+.ssid-row{display:flex;gap:8px}
+.ssid-row input{flex:1}
+button{cursor:pointer;border:none;border-radius:6px;font-size:1rem;padding:10px 16px;
+       background:#4fc3f7;color:#0a0a1a;font-weight:600;transition:opacity .15s}
+button:hover{opacity:.85}
+button:disabled{opacity:.45;cursor:not-allowed}
+#btn-submit{width:100%;margin-top:4px;padding:12px}
+.status{margin-top:14px;padding:10px 14px;border-radius:6px;font-size:.9rem}
+.status.hidden{display:none}
+.status.info{background:#0f3460;border:1px solid #4fc3f7}
+.status.error{background:#3d0000;border:1px solid #ef5350}
+.status.success{background:#003d00;border:1px solid #66bb6a}
+a{color:#4fc3f7}

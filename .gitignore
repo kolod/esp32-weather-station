@@ -1,0 +1,41 @@
+# ESP-IDF build artifacts
+build/
+sdkconfig
+sdkconfig.old
+dependencies.lock
+managed_components/
+*.bin
+*.elf
+*.map
+*.hex
+*.dfu
+flash_args
+x509_crt_bundle
+
+# IDE
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*~
+
+# Private CA material — keys never committed, but ca.crt may be committed intentionally
+tools/ca/*.key
+tools/ca/device.crt
+tools/ca/device.key
+# Keep ca.crt so others can install the CA trust anchor:
+# !tools/ca/ca.crt
+
+# Logs
+*.log
+
+# Claude AI workspace files
+.claude/settings.local.json
+CLAUDE.local.md

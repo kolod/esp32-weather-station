@@ -1,0 +1,20 @@
+{
+  "title": "Configuration station météo",
+  "heading": "Configuration WiFi",
+  "label_ssid": "Nom du réseau (SSID)",
+  "placeholder_ssid": "Sélectionner ou saisir le réseau",
+  "label_password": "Mot de passe",
+  "placeholder_password": "Mot de passe WiFi",
+  "label_timezone": "Fuseau horaire",
+  "btn_scan": "Rechercher",
+  "btn_submit": "Connecter",
+  "status_connecting": "Connexion en cours…",
+  "status_success": "Connecté ! L'appareil est accessible à :",
+  "status_failed_auth": "Mot de passe incorrect. Veuillez réessayer.",
+  "status_failed_not_found": "Réseau introuvable. Veuillez réessayer.",
+  "status_failed_generic": "Échec de la connexion. Veuillez réessayer.",
+  "scanning": "Recherche des réseaux…",
+  "no_networks": "Aucun réseau trouvé.",
+  "secure": "Sécurisé",
+  "open": "Ouvert"
+}

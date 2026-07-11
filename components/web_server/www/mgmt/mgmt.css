@@ -1,0 +1,35 @@
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0f0f1a;color:#e0e0e0;min-height:100vh}
+header{background:#16213e;padding:16px 24px;display:flex;align-items:center;
+        justify-content:space-between;border-bottom:1px solid #2a4070}
+header h1{font-size:1.2rem;color:#4fc3f7}
+#fw-version{font-size:.8rem;color:#90caf9;opacity:.7}
+main{max-width:780px;margin:24px auto;padding:0 16px;display:grid;gap:16px}
+.card{background:#16213e;border-radius:10px;padding:20px;border:1px solid #1e3a5f}
+h2{font-size:1rem;color:#90caf9;margin-bottom:14px;border-bottom:1px solid #1e3a5f;
+   padding-bottom:8px}
+.readings .reading-row{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+.value{font-size:3.5rem;font-weight:700;color:#4fc3f7;line-height:1}
+.unit{font-size:1.4rem;color:#90caf9}
+.value-sm{font-size:2rem;font-weight:600;color:#e0e0e0}
+.badge{font-size:.75rem;padding:2px 8px;border-radius:10px;background:#0f3460;color:#4fc3f7}
+#wifi-status{font-size:.85rem;color:#90caf9;margin-top:6px}
+.config label{display:block;font-size:.85rem;color:#90caf9;margin-bottom:4px}
+.row{display:flex;gap:8px;align-items:center}
+select{flex:1;padding:8px 10px;background:#0f3460;color:#e0e0e0;border:1px solid #2a4070;
+       border-radius:6px;font-size:.95rem}
+button{padding:8px 16px;border:none;border-radius:6px;background:#4fc3f7;color:#0a0a1a;
+       font-weight:600;cursor:pointer;font-size:.95rem}
+button:disabled{opacity:.4;cursor:not-allowed}
+.hint{font-size:.75rem;color:#5a7a9f;margin-top:10px}
+.ota input[type=file]{display:block;margin-bottom:10px;color:#e0e0e0}
+progress{width:100%;height:8px;border-radius:4px}
+#ota-pct{font-size:.85rem;color:#90caf9;margin-left:8px}
+#ota-status{margin-top:10px;font-size:.9rem}
+.hidden{display:none}
+.history table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:10px}
+.history th,.history td{text-align:left;padding:6px 10px;border-bottom:1px solid #1e3a5f}
+.history th{color:#90caf9}
+#btn-load-hist{margin-top:12px;background:#1e3a5f;color:#4fc3f7}
+#btn-csv{font-size:.85rem;color:#4fc3f7;text-decoration:none;padding:6px 12px;
+         border:1px solid #4fc3f7;border-radius:6px}
