@@ -19,8 +19,8 @@
 
 #define TAG "handlers_mgmt"
 
-extern const uint8_t mgmt_html_gz_start[] asm("_binary_index_html_start");
-extern const uint8_t mgmt_html_gz_end[]   asm("_binary_index_html_end");
+extern const uint8_t mgmt_html_gz_start[] asm("_binary_mgmt_html_start");
+extern const uint8_t mgmt_html_gz_end[]   asm("_binary_mgmt_html_end");
 extern const uint8_t mgmt_css_gz_start[]  asm("_binary_mgmt_css_start");
 extern const uint8_t mgmt_css_gz_end[]    asm("_binary_mgmt_css_end");
 extern const uint8_t mgmt_js_gz_start[]   asm("_binary_mgmt_js_start");
@@ -53,6 +53,10 @@ static bool json_str(const char *json, const char *key, char *out, size_t len)
 static esp_err_t mgmt_page(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_set_hdr(req, "Strict-Transport-Security", "max-age=31536000");
+    httpd_resp_set_hdr(req, "Content-Security-Policy",
+                       "upgrade-insecure-requests; default-src 'self'");
+    httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
     httpd_resp_send(req, (const char *)mgmt_html_gz_start,
                     mgmt_html_gz_end - mgmt_html_gz_start);
     return ESP_OK;

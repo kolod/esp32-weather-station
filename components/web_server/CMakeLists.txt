@@ -18,7 +18,7 @@ idf_component_register(
         "www/i18n/de.json"
         "www/i18n/fr.json"
         "www/i18n/uk.json"
-        "www/mgmt/index.html"
+        "www/mgmt/mgmt.html"
         "www/mgmt/mgmt.css"
         "www/mgmt/mgmt.js"
 )
