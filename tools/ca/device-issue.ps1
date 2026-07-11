@@ -42,8 +42,11 @@ CN = $hostname
 "@ | Out-File -FilePath (Join-Path $OutDir "_device_req.cnf") -Encoding ascii
 
 @"
-subjectAltName = DNS:${hostname}.local
-extendedKeyUsage = serverAuth
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName         = DNS:${hostname}.local
+extendedKeyUsage       = serverAuth
+basicConstraints       = critical, CA:FALSE
 "@ | Out-File -FilePath $extFile -Encoding ascii
 
 try {

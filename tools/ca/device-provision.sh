@@ -17,22 +17,26 @@ PART_OFFSET=0x620000
 [[ -f "$KEY_FILE"  ]] || { echo "device.key missing. Run device-issue.sh first."; exit 1; }
 [[ -f "$CERT_FILE" ]] || { echo "device.crt missing. Run device-issue.sh first."; exit 1; }
 
-# Find mklittlefs
-MKLFS=$(command -v mklittlefs 2>/dev/null || \
-        find "$IDF_PATH" -name "mklittlefs" -type f 2>/dev/null | head -1)
-[[ -n "$MKLFS" ]] || { echo "mklittlefs not found. Ensure ESP-IDF tools are installed."; exit 1; }
-
 rm -rf "$TEMP_DIR"
 mkdir -p "$TEMP_DIR/certs"
 cp "$CERT_FILE" "$TEMP_DIR/certs/device.crt"
 cp "$KEY_FILE"  "$TEMP_DIR/certs/device.key"
 
-"$MKLFS" -c "$TEMP_DIR" -s $PART_SIZE -p 256 -b 4096 "$IMAGE"
-echo "Image: $IMAGE"
+python3 - "$TEMP_DIR" "$IMAGE" <<'PYEOF'
+import littlefs, os, sys
+src, out = sys.argv[1], sys.argv[2]
+size, bsize = 0x9E0000, 4096
+fs = littlefs.LittleFS(block_size=bsize, block_count=size // bsize)
+fs.mkdir('/certs')
+for fname in os.listdir(os.path.join(src, 'certs')):
+    with open(os.path.join(src, 'certs', fname), 'rb') as f: data = f.read()
+    with fs.open('/certs/' + fname, 'wb') as f: f.write(data)
+with open(out, 'wb') as f: f.write(bytes(fs.context.buffer))
+print(f'Image: {out}')
+PYEOF
 
-python "$IDF_PATH/components/esptool_py/esptool/esptool.py" \
-  --chip esp32 --port "$PORT" --baud 921600 \
-  write_flash $PART_OFFSET "$IMAGE"
+python3 -m esptool --chip esp32 --port "$PORT" --baud 921600 \
+  write-flash $PART_OFFSET "$IMAGE"
 
 rm -rf "$TEMP_DIR"
 echo "Device weather-$SUFFIX provisioned on $PORT"

@@ -19,8 +19,11 @@ EXT_FILE="$DIR/_device_ext.cnf"
 [[ -f "$CA_CERT" ]] || { echo "ca.crt not found."; exit 1; }
 
 cat > "$EXT_FILE" <<EOF
-subjectAltName = DNS:${HOSTNAME}.local
-extendedKeyUsage = serverAuth
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName         = DNS:${HOSTNAME}.local
+extendedKeyUsage       = serverAuth
+basicConstraints       = critical, CA:FALSE
 EOF
 
 openssl ecparam -name prime256v1 -genkey -noout -out "$DEV_KEY"
