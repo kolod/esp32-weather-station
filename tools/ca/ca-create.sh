@@ -31,7 +31,7 @@ basicConstraints       = critical, CA:TRUE
 keyUsage               = critical, keyCertSign, cRLSign
 EOF
 
-openssl ecparam -name prime256v1 -genkey -noout -out "$KEY"
+openssl ecparam -name prime256v1 -genkey -noout | openssl ec -aes256 -out "$KEY"
 openssl req -new -x509 -key "$KEY" -out "$CERT" -days 7300 -sha256 -config "$CNF"
 rm -f "$CNF"
 
