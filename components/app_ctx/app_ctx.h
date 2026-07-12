@@ -38,12 +38,20 @@ typedef struct {
     char        error[64]; /* human-readable reason on FAILED, empty otherwise */
 } ota_session_t;
 
+/* ── Time source (feature 002: RTC time restore) ── */
+typedef enum {
+    APP_TIME_SOURCE_NONE = 0, /* no trustworthy time; display shows "not available"    */
+    APP_TIME_SOURCE_RTC,      /* restored from battery-backed clock, not yet verified  */
+    APP_TIME_SOURCE_NTP,      /* network-synchronized this boot                        */
+} app_time_source_t;
+
 /* ── Shared application state (guarded by app_state_mutex) ── */
 typedef struct {
     temperature_reading_t reading;
     wifi_state_t          wifi_state;
     ota_session_t         ota;
-    bool                  time_synced;
+    bool                  time_synced; /* NTP-synced this boot (time_source == NTP)    */
+    app_time_source_t     time_source; /* time_source != NONE ⇒ time is displayable    */
 } app_state_t;
 
 extern app_state_t       app_state;
@@ -58,6 +66,7 @@ typedef enum {
     APP_EVT_SETTINGS_CHANGED,    /* one or more NVS settings changed              */
     APP_EVT_WIFI_STATE_CHANGED,  /* wifi_state_t changed; data: new wifi_state_t */
     APP_EVT_OTA_STATE_CHANGED,   /* ota_session_t changed                         */
+    APP_EVT_TIME_RESTORED,       /* valid time restored from battery-backed RTC  */
 } app_event_id_t;
 
 /* Helper: post an event with no payload */

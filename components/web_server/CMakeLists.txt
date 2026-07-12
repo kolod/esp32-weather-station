@@ -10,6 +10,7 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES esp_http_server esp_https_server esp_event settings history
              app_ctx captive_dns wifi_mgr esp_wifi esp_netif app_update esp_timer vfs
+             rtc_time
     EMBED_FILES
         "www/portal/index.html"
         "www/portal/portal.css"

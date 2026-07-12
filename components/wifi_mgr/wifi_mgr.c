@@ -1,6 +1,7 @@
 #include "wifi_mgr.h"
 #include "app_ctx.h"
 #include "settings.h"
+#include "rtc_time.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
@@ -78,6 +79,9 @@ static void stop_ap(void)
 static void start_sntp(void)
 {
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    /* Slew small post-restore offsets instead of stepping, so the displayed
+       time never visibly jumps; offsets beyond the lwIP threshold still step */
+    esp_sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
     esp_sntp_setservername(0, "pool.ntp.org");
     esp_sntp_setservername(1, "time.cloudflare.com");
     esp_sntp_init();
@@ -101,6 +105,7 @@ static void sntp_sync_cb(struct timeval *tv)
 {
     ESP_LOGI(TAG, "SNTP synchronized");
     settings_apply_timezone();
+    rtc_time_mark_synced(); /* refresh battery-backed validity record; time_source → NTP */
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
     app_state.time_synced = true;
     xSemaphoreGive(app_state_mutex);

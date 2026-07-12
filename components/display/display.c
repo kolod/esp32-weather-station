@@ -142,8 +142,8 @@ static void display_event_handler(void *arg, esp_event_base_t base,
     if (!lvgl_port_lock(pdMS_TO_TICKS(100))) return;
 
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
-    temperature_reading_t r = app_state.reading;
-    bool time_synced         = app_state.time_synced;
+    temperature_reading_t r  = app_state.reading;
+    app_time_source_t tsrc   = app_state.time_source;
     wifi_state_t ws          = app_state.wifi_state;
     xSemaphoreGive(app_state_mutex);
 
@@ -151,7 +151,8 @@ static void display_event_handler(void *arg, esp_event_base_t base,
     uint8_t mode = settings_get_time_mode();
 
     ui_set_temperature(r.value_c, r.valid, unit);
-    ui_set_time(time_synced, time(NULL), mode);
+    /* Time is displayable from either source: NTP-synced or RTC-restored */
+    ui_set_time(tsrc != APP_TIME_SOURCE_NONE, time(NULL), mode);
     ui_set_wifi_state((int)ws);
 
     lvgl_port_unlock();
@@ -171,6 +172,8 @@ static void display_task(void *arg)
     esp_event_handler_register(APP_EVENT, APP_EVT_READING_UPDATED,
                                 display_event_handler, NULL);
     esp_event_handler_register(APP_EVENT, APP_EVT_TIME_SYNCED,
+                                display_event_handler, NULL);
+    esp_event_handler_register(APP_EVENT, APP_EVT_TIME_RESTORED,
                                 display_event_handler, NULL);
     esp_event_handler_register(APP_EVENT, APP_EVT_SETTINGS_CHANGED,
                                 display_event_handler, NULL);

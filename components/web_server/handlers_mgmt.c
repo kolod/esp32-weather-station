@@ -4,6 +4,7 @@
 #include "app_ctx.h"
 #include "settings.h"
 #include "history.h"
+#include "rtc_time.h"
 #include "tz_table.h"
 #include "esp_log.h"
 #include "esp_app_desc.h"
@@ -83,7 +84,18 @@ static esp_err_t api_status(httpd_req_t *req)
     temperature_reading_t reading = app_state.reading;
     wifi_state_t ws               = app_state.wifi_state;
     bool time_synced              = app_state.time_synced;
+    app_time_source_t tsrc        = app_state.time_source;
     xSemaphoreGive(app_state_mutex);
+
+    /* Time-source state + last recorded network sync (feature 002, FR-007) */
+    static const char *tsrc_str[] = {"none", "rtc", "ntp"};
+    int tsrc_idx = ((int)tsrc >= 0 && (int)tsrc < 3) ? (int)tsrc : 0;
+    char last_sync_str[24];
+    int64_t last_sync = rtc_time_last_sync();
+    if (last_sync < 0)
+        strlcpy(last_sync_str, "null", sizeof(last_sync_str));
+    else
+        snprintf(last_sync_str, sizeof(last_sync_str), "%lld", (long long)last_sync);
 
     char tz_name[64], time_mode_str[8], temp_unit_str[4];
     settings_get_tz_name(tz_name, sizeof(tz_name));
@@ -122,13 +134,15 @@ static esp_err_t api_status(httpd_req_t *req)
         esp_ip4addr_ntoa(&ip_info.ip, ip_str, sizeof(ip_str));
 
     /* Build JSON manually to avoid cJSON dependency */
-    char buf[768];
+    char buf[896];
     int ws_idx = ((int)ws >= 0 && (int)ws < 6) ? (int)ws : 0;
     snprintf(buf, sizeof(buf),
         "{"
         "\"temperature_c\":%.2f,"
         "\"temperature_valid\":%s,"
         "\"time_synced\":%s,"
+        "\"time_source\":\"%s\","
+        "\"time_last_sync\":%s,"
         "\"now\":%lu,"
         "\"tz_name\":\"%s\","
         "\"time_mode\":\"%s\","
@@ -147,6 +161,8 @@ static esp_err_t api_status(httpd_req_t *req)
         (double)reading.value_c,
         reading.valid ? "true" : "false",
         time_synced   ? "true" : "false",
+        tsrc_str[tsrc_idx],
+        last_sync_str,
         (unsigned long)now,
         tz_name,
         time_mode_str,
