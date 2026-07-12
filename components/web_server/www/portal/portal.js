@@ -47,6 +47,7 @@
       nets.networks.forEach(n => {
         const opt = document.createElement('option');
         opt.value = n.ssid;
+        opt.label = `${n.ssid} (${n.auth ? (t.secure || 'Secured') : (t.open || 'Open')})`;
         dl.appendChild(opt);
       });
       $('ssid').setAttribute('list', 'networks');
