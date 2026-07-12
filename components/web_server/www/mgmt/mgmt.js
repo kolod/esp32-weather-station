@@ -34,7 +34,10 @@
       : '---';
     $('temp-unit').textContent = s.temperature_valid ? (s.temp_unit === 'F' ? '°F' : '°C') : '';
 
-    if (s.time_synced && s.now) {
+    /* Time is displayable from either source: NTP-synced or RTC-restored.
+       Fall back to time_synced for firmware without time_source. */
+    const timeSource = s.time_source ?? (s.time_synced ? 'ntp' : 'none');
+    if (timeSource !== 'none' && s.now) {
       const d = new Date(s.now * 1000);
       const h = String(d.getUTCHours()).padStart(2,'0');
       const m = String(d.getUTCMinutes()).padStart(2,'0');
@@ -44,6 +47,14 @@
       $('time-val').textContent = '--:--';
       $('time-sync').textContent = 'no sync';
     }
+
+    const lastSync = s.time_last_sync
+      ? new Date(s.time_last_sync * 1000).toISOString().replace('T',' ').slice(0,19) + ' UTC'
+      : null;
+    $('time-source').textContent =
+      timeSource === 'ntp' ? `Time: synchronized${lastSync ? ` (last sync ${lastSync})` : ''}` :
+      timeSource === 'rtc' ? `Time: from backup clock${lastSync ? ` (last sync ${lastSync})` : ''}` :
+                             'Time: not available';
 
     $('wifi-status').textContent =
       `WiFi: ${s.wifi?.state || '—'} · ${s.wifi?.ssid || ''} · ${s.wifi?.ip || ''}`;

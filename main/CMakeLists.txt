@@ -11,6 +11,7 @@ idf_component_register(
         settings
         sensor
         history
+        rtc_time
         display
         wifi_mgr
         web_server

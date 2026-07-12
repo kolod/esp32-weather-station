@@ -14,6 +14,7 @@
 #include "wifi_mgr.h"
 #include "web_server.h"
 #include "history.h"
+#include "rtc_time.h"
 #include "esp_littlefs.h"
 #include <sys/stat.h>
 
@@ -52,6 +53,10 @@ void app_main(void)
     /* ── Settings ── */
     ESP_ERROR_CHECK(settings_init());
     settings_apply_timezone();
+
+    /* ── Restore time from battery-backed RTC (before any task starts, so the
+          display's first frame already has valid time when the RTC kept it) ── */
+    rtc_time_restore();
 
     /* ── LittleFS (storage partition for certs + history) ── */
     esp_vfs_littlefs_conf_t lfs_cfg = {

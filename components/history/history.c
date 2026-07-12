@@ -146,7 +146,9 @@ static void purge_old(void)
 static void on_reading(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     time_t now = time(NULL);
-    if (now < 1000000) return; /* time not yet synced */
+    /* No trustworthy time yet (neither NTP sync nor RTC restore) — a restored
+       clock is always ≥ the firmware build epoch, so it passes this gate. */
+    if (now < 1000000) return;
 
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
     temperature_reading_t r = app_state.reading;
