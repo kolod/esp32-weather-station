@@ -30,7 +30,6 @@
       <select id="sel-tz"></select>
       <button id="btn-save-tz">Save</button>
     </div>
-    <p class="hint">Button ← toggles LOCAL/UTC display | Button → toggles °C/°F</p>
   </section>
 
   <section class="card ota">
@@ -57,6 +56,29 @@
       </table>
     </div>
     <button id="btn-load-hist">Load last 100 records</button>
+  </section>
+
+  <section class="card help">
+    <h2>Help</h2>
+    <h3>Buttons</h3>
+    <ul>
+      <li><strong>← (left)</strong> — toggles time display between LOCAL and UTC</li>
+      <li><strong>→ (right)</strong> — toggles temperature unit between °C and °F</li>
+      <li><strong>← hold 5 s</strong> — factory reset: clears saved WiFi credentials and reboots into setup hotspot</li>
+    </ul>
+    <h3>Install CA Certificate</h3>
+    <ol>
+      <li>Obtain <code>ca.crt</code> from whoever set up your weather station.</li>
+      <li>Install it into your OS or browser trust store:
+        <ul>
+          <li><strong>Windows</strong> — double-click → <em>Install Certificate</em> → <em>Trusted Root Certification Authorities</em></li>
+          <li><strong>macOS / iOS</strong> — open the file, trust it in <em>Keychain Access / Settings → General → VPN &amp; Device Management</em></li>
+          <li><strong>Android</strong> — <em>Settings → Security → Install a certificate → CA certificate</em></li>
+          <li><strong>Firefox</strong> — <em>Settings → Privacy &amp; Security → Certificates → Import</em></li>
+        </ul>
+      </li>
+      <li>After installing, all weather stations signed by this CA will load without certificate warnings.</li>
+    </ol>
   </section>
 </main>
 <script src="/mgmt.js"></script>
