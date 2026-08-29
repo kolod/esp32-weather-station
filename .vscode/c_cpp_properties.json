@@ -3,9 +3,6 @@
     {
       "name": "ESP-IDF",
       "compileCommands": "${workspaceFolder}/build/compile_commands.json",
-      "defines": [
-        "ESP_PLATFORM"
-      ],
       "cStandard": "c11",
       "cppStandard": "c++17",
       "intelliSenseMode": "gcc-x64"
