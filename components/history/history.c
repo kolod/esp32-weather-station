@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -23,15 +24,33 @@
 #define RING_SIZE     12         /* max 12 samples per hour  */
 #define MONTHS_RETAIN 3
 
-/* ── 8-byte on-disk record ── */
+/* ── On-disk records ──
+   v1 (8 bytes, files "YYYYMM.bin"): written by pre-005 firmware; read-only.
+   v2 (12 bytes, files "YYYYMM.bi2"): adds pressure (feature 005, D4) and,
+   feature 007, humidity — spent in the two bytes v2 reserved "for one future
+   field". Byte layout, size, file name and CRC coverage are unchanged; an old
+   v2 record has those bytes zero and flags bit2 clear, so humidity reads back
+   as absent. The record size is dispatched by file extension. */
+
 typedef struct __attribute__((packed)) {
     uint32_t epoch;        /* UTC seconds                     */
     int16_t  temp_centi;   /* °C × 100                        */
     uint8_t  flags;        /* bit0: valid                     */
     uint8_t  crc8;         /* CRC-8 over bytes [0..6] poly 0x07 */
-} hist_record_t;
+} hist_record_v1_t;
 
-_Static_assert(sizeof(hist_record_t) == 8, "record must be 8 bytes");
+typedef struct __attribute__((packed)) {
+    uint32_t epoch;        /* off 0  UTC seconds                        */
+    int16_t  temp_centi;   /* off 4  °C × 100                           */
+    uint16_t press_deci;   /* off 6  hPa × 10; meaningful if flags bit1 */
+    uint8_t  flags;        /* off 8  bit0 temp | bit1 pressure | bit2 humidity */
+    uint16_t hum_centi;    /* off 9  %RH × 100; meaningful if flags bit2
+                                     (feature 007; was reserved[2])     */
+    uint8_t  crc8;         /* off 11 CRC-8 over bytes [0..10] poly 0x07 */
+} hist_record_v2_t;
+
+_Static_assert(sizeof(hist_record_v1_t) == 8,  "v1 record must be 8 bytes");
+_Static_assert(sizeof(hist_record_v2_t) == 12, "v2 record must be 12 bytes");
 
 static uint8_t crc8(const uint8_t *data, size_t len)
 {
@@ -44,8 +63,8 @@ static uint8_t crc8(const uint8_t *data, size_t len)
     return crc;
 }
 
-/* ── RAM ring buffer (current hour's samples) ── */
-static hist_record_t s_ring[RING_SIZE];
+/* ── RAM ring buffer (current hour's samples, always v2) ── */
+static hist_record_v2_t s_ring[RING_SIZE];
 static int           s_ring_count = 0;
 static SemaphoreHandle_t s_ring_mutex = NULL;
 
@@ -61,8 +80,18 @@ static void path_for_month(time_t t, char *buf, size_t len)
 {
     struct tm tm;
     gmtime_r(&t, &tm);
-    snprintf(buf, len, "%s/%04d%02d.bin",
+    snprintf(buf, len, "%s/%04d%02d.bi2",
              HIST_DIR, tm.tm_year + 1900, tm.tm_mon + 1);
+}
+
+/* Record size for a history filename; 0 if not a history file. */
+static size_t record_size_for(const char *name)
+{
+    size_t n = strlen(name);
+    if (n < 5) return 0;
+    if (strcmp(name + n - 4, ".bin") == 0) return sizeof(hist_record_v1_t);
+    if (strcmp(name + n - 4, ".bi2") == 0) return sizeof(hist_record_v2_t);
+    return 0;
 }
 
 /* ── Flush buffered samples to flash ── */
@@ -80,7 +109,7 @@ static void flush_ring(void)
         xSemaphoreGive(s_ring_mutex);
         return;
     }
-    fwrite(s_ring, sizeof(hist_record_t), s_ring_count, f);
+    fwrite(s_ring, sizeof(hist_record_v2_t), s_ring_count, f);
     fclose(f);
 
     s_record_count += s_ring_count;
@@ -90,13 +119,23 @@ static void flush_ring(void)
 }
 
 /* ── Record a new sample ── */
-static void record_sample(float temp_c, bool valid)
+static void record_sample(float temp_c, bool temp_valid,
+                          float press_hpa, bool press_valid,
+                          float hum_pct, bool hum_valid)
 {
-    hist_record_t r;
+    hist_record_v2_t r = {0};
     r.epoch      = (uint32_t)time(NULL);
     r.temp_centi = (int16_t)(temp_c * 100.0f);
-    r.flags      = valid ? 0x01 : 0x00;
-    r.crc8       = crc8((uint8_t *)&r, offsetof(hist_record_t, crc8));
+    r.flags      = temp_valid ? 0x01 : 0x00;
+    if (press_valid && press_hpa >= 300.0f && press_hpa <= 1100.0f) {
+        r.press_deci = (uint16_t)(press_hpa * 10.0f + 0.5f);
+        r.flags     |= 0x02;
+    }
+    if (hum_valid && hum_pct >= 0.0f && hum_pct <= 100.0f) {
+        r.hum_centi = (uint16_t)(hum_pct * 100.0f + 0.5f);
+        r.flags    |= 0x04;
+    }
+    r.crc8 = crc8((uint8_t *)&r, offsetof(hist_record_v2_t, crc8));
 
     xSemaphoreTake(s_ring_mutex, portMAX_DELAY);
     if (s_ring_count < RING_SIZE)
@@ -121,14 +160,16 @@ static void purge_old(void)
     struct dirent *ent;
     uint32_t count = 0;
     while ((ent = readdir(d)) != NULL) {
+        size_t rec_size = record_size_for(ent->d_name);
         int y, m;
-        if (sscanf(ent->d_name, "%4d%2d.bin", &y, &m) != 2) continue;
-        /* Count all records for live stats */
-        char path[32];
-        snprintf(path, sizeof(path), "%s/%04d%02d.bin", HIST_DIR, y, m);
+        if (rec_size == 0 ||
+            sscanf(ent->d_name, "%4d%2d.", &y, &m) != 2) continue;
+        /* Count all records for live stats (names are "YYYYMM.bin"/".bi2") */
+        char path[64];
+        snprintf(path, sizeof(path), "%s/%.15s", HIST_DIR, ent->d_name);
         struct stat st;
         if (stat(path, &st) == 0)
-            count += (uint32_t)(st.st_size / sizeof(hist_record_t));
+            count += (uint32_t)(st.st_size / rec_size);
 
         /* Delete if entire month ended before cutoff */
         bool old = (y < cut_year) || (y == cut_year && m < cut_month);
@@ -152,12 +193,15 @@ static void on_reading(void *arg, esp_event_base_t base, int32_t id, void *data)
 
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
     temperature_reading_t r = app_state.reading;
+    pressure_reading_t    p = app_state.pressure;
+    humidity_reading_t    h = app_state.humidity;
     xSemaphoreGive(app_state_mutex);
 
     /* 5-minute sample */
     if (now - s_last_sample_time >= SAMPLE_SECS) {
         s_last_sample_time = now;
-        record_sample(r.value_c, r.valid);
+        record_sample(r.value_c, r.valid, p.value_hpa, p.valid,
+                      h.value_pct, h.valid);
     }
 
     /* Hourly flush */
@@ -190,32 +234,54 @@ void history_query(uint32_t from, uint32_t to, history_cb_t cb, void *ctx)
     int  nfiles = 0;
     struct dirent *ent;
     while ((ent = readdir(d)) != NULL && nfiles < 16) {
-        if (strstr(ent->d_name, ".bin"))
+        if (record_size_for(ent->d_name) != 0)
             strlcpy(names[nfiles++], ent->d_name, 16);
     }
     closedir(d);
 
-    /* Sort ascending (YYYYMM.bin is lexicographically ordered by date) */
+    /* Sort chronologically: by YYYYMM prefix; within the upgrade month the
+       v1 file (.bin) holds the older records, so it sorts first. */
     for (int i = 0; i < nfiles - 1; i++)
-        for (int j = i + 1; j < nfiles; j++)
-            if (strcmp(names[i], names[j]) > 0) {
+        for (int j = i + 1; j < nfiles; j++) {
+            int cmp = strncmp(names[i], names[j], 6);
+            if (cmp == 0) /* same month: ".bin" before ".bi2" */
+                cmp = (record_size_for(names[i]) == sizeof(hist_record_v2_t)) -
+                      (record_size_for(names[j]) == sizeof(hist_record_v2_t));
+            if (cmp > 0) {
                 char tmp[16]; memcpy(tmp, names[i], 16);
                 memcpy(names[i], names[j], 16); memcpy(names[j], tmp, 16);
             }
+        }
 
     for (int fi = 0; fi < nfiles; fi++) {
         char path[64];
         snprintf(path, sizeof(path), "%s/%s", HIST_DIR, names[fi]);
+        bool v2 = record_size_for(names[fi]) == sizeof(hist_record_v2_t);
         FILE *f = fopen(path, "rb");
         if (!f) continue;
-        hist_record_t rec;
-        while (fread(&rec, sizeof(rec), 1, f) == 1) {
-            /* Verify CRC — skip torn records */
-            if (rec.crc8 != crc8((uint8_t *)&rec, offsetof(hist_record_t, crc8)))
-                continue;
-            if (!(rec.flags & 0x01)) continue; /* invalid reading */
-            if (rec.epoch < from || rec.epoch > to) continue;
-            cb(rec.epoch, (float)rec.temp_centi / 100.0f, ctx);
+
+        if (v2) {
+            hist_record_v2_t rec;
+            while (fread(&rec, sizeof(rec), 1, f) == 1) {
+                if (rec.crc8 != crc8((uint8_t *)&rec, offsetof(hist_record_v2_t, crc8)))
+                    continue; /* torn record */
+                if (!(rec.flags & 0x01)) continue; /* invalid temperature */
+                if (rec.epoch < from || rec.epoch > to) continue;
+                float press = (rec.flags & 0x02)
+                    ? (float)rec.press_deci / 10.0f : NAN;
+                float hum = (rec.flags & 0x04)
+                    ? (float)rec.hum_centi / 100.0f : NAN;
+                cb(rec.epoch, (float)rec.temp_centi / 100.0f, press, hum, ctx);
+            }
+        } else {
+            hist_record_v1_t rec;
+            while (fread(&rec, sizeof(rec), 1, f) == 1) {
+                if (rec.crc8 != crc8((uint8_t *)&rec, offsetof(hist_record_v1_t, crc8)))
+                    continue;
+                if (!(rec.flags & 0x01)) continue;
+                if (rec.epoch < from || rec.epoch > to) continue;
+                cb(rec.epoch, (float)rec.temp_centi / 100.0f, NAN, NAN, ctx);
+            }
         }
         fclose(f);
     }

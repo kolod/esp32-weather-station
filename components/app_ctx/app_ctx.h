@@ -8,10 +8,32 @@
 
 /* ── Temperature reading (written by sensor task, read by display/history/web) ── */
 typedef struct {
-    float    value_c;       /* probe reading in °C */
-    bool     valid;         /* false: probe absent, CRC error, or out of range */
+    float    value_c;       /* sensor reading in °C */
+    bool     valid;         /* false: sensor absent, read error, or out of range */
     int64_t  updated_at_ms; /* esp_timer_get_time() / 1000 at last write */
 } temperature_reading_t;
+
+/* ── Pressure reading (feature 005: BMP280/BME280; valid in BMP280 & BME280 modes) ── */
+typedef struct {
+    float    value_hpa;     /* station pressure in hPa */
+    bool     valid;         /* false: no Bosch sensor, read error, or out of range */
+    int64_t  updated_at_ms; /* esp_timer_get_time() / 1000 at last write */
+} pressure_reading_t;
+
+/* ── Humidity reading (feature 007: BME280; valid only in SENSOR_BME280 mode) ── */
+typedef struct {
+    float    value_pct;     /* relative humidity, 0.0–100.0 %RH */
+    bool     valid;         /* false: no BME280, read error, or out of range */
+    int64_t  updated_at_ms; /* esp_timer_get_time() / 1000 at last write */
+} humidity_reading_t;
+
+/* ── Sensor detected at boot (feature 005/007); fixed until reboot ── */
+typedef enum {
+    SENSOR_NONE = 0,  /* no sensor responded: all readings stay invalid    */
+    SENSOR_DS18B20,   /* wired probe: temperature only (pre-005 behavior)  */
+    SENSOR_BMP280,    /* I2C BMP280: temperature and pressure              */
+    SENSOR_BME280,    /* I2C BME280: temperature, pressure and humidity    */
+} sensor_kind_t;
 
 /* ── WiFi state ── */
 typedef enum {
@@ -48,6 +70,9 @@ typedef enum {
 /* ── Shared application state (guarded by app_state_mutex) ── */
 typedef struct {
     temperature_reading_t reading;
+    pressure_reading_t    pressure;    /* valid when sensor_kind is SENSOR_BMP280 or SENSOR_BME280 */
+    humidity_reading_t    humidity;    /* valid only when sensor_kind == SENSOR_BME280 */
+    sensor_kind_t         sensor_kind; /* boot-time detection result (feature 005/007) */
     wifi_state_t          wifi_state;
     ota_session_t         ota;
     bool                  time_synced; /* NTP-synced this boot (time_source == NTP)    */

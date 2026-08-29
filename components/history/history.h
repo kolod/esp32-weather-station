@@ -17,11 +17,16 @@ uint32_t history_record_count(void);
 
 /**
  * @brief Stream history records within [from, to] UTC epoch range to a callback.
- *        Records with invalid flag are omitted.
+ *        Records with invalid temperature flag are omitted.
  * @param from     start epoch (0 = no lower bound)
  * @param to       end epoch (UINT32_MAX = no upper bound)
- * @param cb       called once per valid record in chronological order
+ * @param cb       called once per valid record in chronological order;
+ *                 pressure_hpa is NAN when the sample carries no pressure
+ *                 (pre-005 v1 records or probe-only operation);
+ *                 humidity_pct is NAN when the sample carries no humidity
+ *                 (pre-007 records, or any non-BME280 operation)
  * @param ctx      user data passed to cb
  */
-typedef void (*history_cb_t)(uint32_t epoch, float temp_c, void *ctx);
+typedef void (*history_cb_t)(uint32_t epoch, float temp_c, float pressure_hpa,
+                             float humidity_pct, void *ctx);
 void history_query(uint32_t from, uint32_t to, history_cb_t cb, void *ctx);
