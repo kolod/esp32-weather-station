@@ -1,4 +1,5 @@
 #include "captive_dns.h"
+#include "wifi_mgr.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,7 +13,8 @@
 #define BUF_SIZE   512
 
 /* AP gateway IP to redirect all DNS queries to (4 bytes, big-endian) */
-static const uint8_t REDIRECT_IP[4] = {192, 168, 4, 1};
+static const uint8_t REDIRECT_IP[4] = {WIFI_MGR_AP_IP_1, WIFI_MGR_AP_IP_2,
+                                        WIFI_MGR_AP_IP_3, WIFI_MGR_AP_IP_4};
 
 static int           s_sock = -1;
 static TaskHandle_t  s_task = NULL;

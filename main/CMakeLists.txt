@@ -16,5 +16,6 @@ idf_component_register(
         wifi_mgr
         web_server
         littlefs
+        boot_log
         app_update
 )

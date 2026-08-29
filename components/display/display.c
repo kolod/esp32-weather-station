@@ -93,6 +93,7 @@ static void panel_init(void)
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST,
                                               &io_cfg, &io_handle));
+    ESP_LOGI(TAG, "SPI bus and panel IO created");
 
     /* ST7789V panel driver */
     esp_lcd_panel_handle_t panel_handle;
@@ -108,6 +109,7 @@ static void panel_init(void)
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true)); /* T-Display needs inversion */
     ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle, LCD_X_GAP, LCD_Y_GAP));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+    ESP_LOGI(TAG, "ST7789 panel initialized (%dx%d)", LCD_H_RES, LCD_V_RES);
 
     /* esp_lvgl_port */
     lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
@@ -134,6 +136,7 @@ static void panel_init(void)
     };
     s_disp = lvgl_port_add_disp(&disp_cfg);
     configASSERT(s_disp);
+    ESP_LOGI(TAG, "LVGL port ready");
 }
 
 static void display_event_handler(void *arg, esp_event_base_t base,
@@ -143,6 +146,8 @@ static void display_event_handler(void *arg, esp_event_base_t base,
 
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
     temperature_reading_t r  = app_state.reading;
+    pressure_reading_t p     = app_state.pressure;
+    humidity_reading_t h     = app_state.humidity;
     app_time_source_t tsrc   = app_state.time_source;
     wifi_state_t ws          = app_state.wifi_state;
     xSemaphoreGive(app_state_mutex);
@@ -151,6 +156,8 @@ static void display_event_handler(void *arg, esp_event_base_t base,
     uint8_t mode = settings_get_time_mode();
 
     ui_set_temperature(r.value_c, r.valid, unit);
+    ui_set_pressure(p.value_hpa, p.valid);
+    ui_set_humidity(h.value_pct, h.valid);
     /* Time is displayable from either source: NTP-synced or RTC-restored */
     ui_set_time(tsrc != APP_TIME_SOURCE_NONE, time(NULL), mode);
     ui_set_wifi_state((int)ws);
@@ -167,6 +174,7 @@ static void display_task(void *arg)
     lvgl_port_lock(portMAX_DELAY);
     ui_init();
     lvgl_port_unlock();
+    ESP_LOGI(TAG, "UI initialized");
 
     /* Subscribe to all relevant app events */
     esp_event_handler_register(APP_EVENT, APP_EVT_READING_UPDATED,

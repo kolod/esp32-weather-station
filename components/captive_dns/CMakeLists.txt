@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "captive_dns.c"
     INCLUDE_DIRS "."
-    REQUIRES lwip esp_common
+    REQUIRES lwip esp_common wifi_mgr
 )

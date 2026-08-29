@@ -15,6 +15,7 @@
 #include "web_server.h"
 #include "history.h"
 #include "rtc_time.h"
+#include "boot_log.h"
 #include "esp_littlefs.h"
 #include <sys/stat.h>
 
@@ -70,6 +71,10 @@ void app_main(void)
     mkdir("/storage/certs",   0755);
     mkdir("/storage/history", 0755);
 
+    /* ── Boot log: capture sensor/display init diagnostics (006).
+          Must start before the sensor/display tasks are created. ── */
+    boot_log_init();
+
     /* ── Tasks: sensor (P5), display (P4), web_server (P4) ── */
     sensor_start();
     display_start();
@@ -86,6 +91,9 @@ void app_main(void)
     } else {
         ESP_LOGE(TAG, "OTA self-check failed — reboot will trigger rollback");
     }
+
+    /* ── Boot log: startup window over — persist to /storage/boot.log ── */
+    boot_log_close();
 
     ESP_LOGI(TAG, "Free heap: %lu bytes", (unsigned long)esp_get_free_heap_size());
 }
