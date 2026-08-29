@@ -2,8 +2,9 @@
 build/
 sdkconfig
 sdkconfig.old
-dependencies.lock
 managed_components/
+# dependencies.lock is committed on purpose — it pins managed component versions
+# for reproducible builds.
 *.bin
 *.elf
 *.map
@@ -39,3 +40,13 @@ tools/ca/device.key
 # Claude AI workspace files
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Python (dev tools)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Large vendor datasheets / reference PDFs — link them, don't commit them
+docs/*.pdf

@@ -1,10 +1,12 @@
 #include "handlers_mgmt.h"
 #include "handlers_common.h"
 #include "handlers_ota.h"
+#include "ws_broadcast.h"
 #include "app_ctx.h"
 #include "settings.h"
 #include "history.h"
 #include "rtc_time.h"
+#include "boot_log.h"
 #include "tz_table.h"
 #include "esp_log.h"
 #include "esp_app_desc.h"
@@ -13,6 +15,7 @@
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "sys/statvfs.h"
+#include <math.h>
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
@@ -20,12 +23,15 @@
 
 #define TAG "handlers_mgmt"
 
-extern const uint8_t mgmt_html_gz_start[] asm("_binary_mgmt_html_start");
-extern const uint8_t mgmt_html_gz_end[]   asm("_binary_mgmt_html_end");
-extern const uint8_t mgmt_css_gz_start[]  asm("_binary_mgmt_css_start");
-extern const uint8_t mgmt_css_gz_end[]    asm("_binary_mgmt_css_end");
-extern const uint8_t mgmt_js_gz_start[]   asm("_binary_mgmt_js_start");
-extern const uint8_t mgmt_js_gz_end[]     asm("_binary_mgmt_js_end");
+/* Embedded assets injected via CMakeLists EMBED_FILES (stored uncompressed) */
+extern const uint8_t mgmt_html_start[] asm("_binary_mgmt_html_start");
+extern const uint8_t mgmt_html_end[]   asm("_binary_mgmt_html_end");
+extern const uint8_t mgmt_css_start[]  asm("_binary_mgmt_css_start");
+extern const uint8_t mgmt_css_end[]    asm("_binary_mgmt_css_end");
+extern const uint8_t mgmt_js_start[]   asm("_binary_mgmt_js_start");
+extern const uint8_t mgmt_js_end[]     asm("_binary_mgmt_js_end");
+extern const uint8_t chart_js_start[]  asm("_binary_chart_js_start");
+extern const uint8_t chart_js_end[]    asm("_binary_chart_js_end");
 
 /* Extract a plain string value from flat JSON: {"key":"value",...} */
 static bool json_str(const char *json, const char *key, char *out, size_t len)
@@ -53,39 +59,56 @@ static bool json_str(const char *json, const char *key, char *out, size_t len)
 /* ── Static assets ── */
 static esp_err_t mgmt_page(httpd_req_t *req)
 {
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_set_hdr(req, "Strict-Transport-Security", "max-age=31536000");
     httpd_resp_set_hdr(req, "Content-Security-Policy",
                        "upgrade-insecure-requests; default-src 'self'");
     httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
-    httpd_resp_send(req, (const char *)mgmt_html_gz_start,
-                    mgmt_html_gz_end - mgmt_html_gz_start);
-    return ESP_OK;
+
+    char lang[3];
+    pick_request_lang(req, lang);
+    return send_html_lang_patched(req, mgmt_html_start, mgmt_html_end, lang);
 }
 static esp_err_t mgmt_css(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/css");
-    httpd_resp_send(req, (const char *)mgmt_css_gz_start,
-                    mgmt_css_gz_end - mgmt_css_gz_start);
+    httpd_resp_send(req, (const char *)mgmt_css_start,
+                    mgmt_css_end - mgmt_css_start);
     return ESP_OK;
 }
 static esp_err_t mgmt_js(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/javascript");
-    httpd_resp_send(req, (const char *)mgmt_js_gz_start,
-                    mgmt_js_gz_end - mgmt_js_gz_start);
+    httpd_resp_send(req, (const char *)mgmt_js_start,
+                    mgmt_js_end - mgmt_js_start);
+    return ESP_OK;
+}
+static esp_err_t chart_js(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
+    httpd_resp_send(req, (const char *)chart_js_start,
+                    chart_js_end - chart_js_start);
     return ESP_OK;
 }
 
-/* ── GET /api/status ── */
-static esp_err_t api_status(httpd_req_t *req)
+/* ── Status snapshot builder (shared by GET /api/status and the /api/ws
+   broadcaster, feature 009) ── */
+esp_err_t build_status_json(char *buf, size_t buf_len)
 {
+    if (buf_len < 1152) return ESP_ERR_INVALID_ARG;
+
     xSemaphoreTake(app_state_mutex, portMAX_DELAY);
     temperature_reading_t reading = app_state.reading;
+    pressure_reading_t pressure   = app_state.pressure;
+    humidity_reading_t humidity   = app_state.humidity;
+    sensor_kind_t sensor_kind     = app_state.sensor_kind;
     wifi_state_t ws               = app_state.wifi_state;
     bool time_synced              = app_state.time_synced;
     app_time_source_t tsrc        = app_state.time_source;
     xSemaphoreGive(app_state_mutex);
+
+    static const char *sensor_str[] = {"none", "ds18b20", "bmp280", "bme280"};
+    int sensor_idx = ((int)sensor_kind >= 0 && (int)sensor_kind < 4) ? (int)sensor_kind : 0;
 
     /* Time-source state + last recorded network sync (feature 002, FR-007) */
     static const char *tsrc_str[] = {"none", "rtc", "ntp"};
@@ -134,12 +157,16 @@ static esp_err_t api_status(httpd_req_t *req)
         esp_ip4addr_ntoa(&ip_info.ip, ip_str, sizeof(ip_str));
 
     /* Build JSON manually to avoid cJSON dependency */
-    char buf[896];
     int ws_idx = ((int)ws >= 0 && (int)ws < 6) ? (int)ws : 0;
-    snprintf(buf, sizeof(buf),
+    snprintf(buf, buf_len,
         "{"
         "\"temperature_c\":%.2f,"
         "\"temperature_valid\":%s,"
+        "\"pressure_hpa\":%.1f,"
+        "\"pressure_valid\":%s,"
+        "\"humidity_pct\":%.1f,"
+        "\"humidity_valid\":%s,"
+        "\"sensor\":\"%s\","
         "\"time_synced\":%s,"
         "\"time_source\":\"%s\","
         "\"time_last_sync\":%s,"
@@ -160,6 +187,11 @@ static esp_err_t api_status(httpd_req_t *req)
         "}",
         (double)reading.value_c,
         reading.valid ? "true" : "false",
+        (double)pressure.value_hpa,
+        pressure.valid ? "true" : "false",
+        (double)humidity.value_pct,
+        humidity.valid ? "true" : "false",
+        sensor_str[sensor_idx],
         time_synced   ? "true" : "false",
         tsrc_str[tsrc_idx],
         last_sync_str,
@@ -176,6 +208,15 @@ static esp_err_t api_status(httpd_req_t *req)
         (unsigned long)history_record_count(),
         (unsigned long)free_kb);
 
+    return ESP_OK;
+}
+
+/* ── GET /api/status ── */
+static esp_err_t api_status(httpd_req_t *req)
+{
+    char buf[1152];
+    esp_err_t err = build_status_json(buf, sizeof(buf));
+    if (err != ESP_OK) { httpd_resp_send_500(req); return ESP_FAIL; }
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, buf);
     return ESP_OK;
@@ -228,12 +269,24 @@ static esp_err_t api_config_put(httpd_req_t *req)
 /* ── History iterator callback (JSON streaming) ── */
 typedef struct { httpd_req_t *req; bool first; } hist_json_ctx_t;
 
-static void hist_json_cb(uint32_t epoch, float temp_c, void *ctx_ptr)
+static void hist_json_cb(uint32_t epoch, float temp_c, float pressure_hpa,
+                         float humidity_pct, void *ctx_ptr)
 {
     hist_json_ctx_t *ctx = (hist_json_ctx_t *)ctx_ptr;
-    char buf[64];
-    snprintf(buf, sizeof(buf), "%s{\"timestamp\":%lu,\"temperature\":%.2f}",
-             ctx->first ? "" : ",", (unsigned long)epoch, (double)temp_c);
+    char press[16], hum[16];
+    if (isnan(pressure_hpa))
+        strlcpy(press, "null", sizeof(press));
+    else
+        snprintf(press, sizeof(press), "%.1f", (double)pressure_hpa);
+    if (isnan(humidity_pct))
+        strlcpy(hum, "null", sizeof(hum));
+    else
+        snprintf(hum, sizeof(hum), "%.1f", (double)humidity_pct);
+
+    char buf[128];
+    snprintf(buf, sizeof(buf),
+             "%s{\"timestamp\":%lu,\"temperature\":%.2f,\"pressure\":%s,\"humidity\":%s}",
+             ctx->first ? "" : ",", (unsigned long)epoch, (double)temp_c, press, hum);
     ctx->first = false;
     httpd_resp_sendstr_chunk(ctx->req, buf);
 }
@@ -262,16 +315,23 @@ static esp_err_t api_history_get(httpd_req_t *req)
 /* ── History CSV download ── */
 typedef struct { httpd_req_t *req; } hist_csv_ctx_t;
 
-static void hist_csv_cb(uint32_t epoch, float temp_c, void *ctx_ptr)
+static void hist_csv_cb(uint32_t epoch, float temp_c, float pressure_hpa,
+                        float humidity_pct, void *ctx_ptr)
 {
     hist_csv_ctx_t *ctx = (hist_csv_ctx_t *)ctx_ptr;
     struct tm t;
     time_t ts = (time_t)epoch;
     gmtime_r(&ts, &t);
-    char buf[64];
-    snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ,%.2f\n",
+    char press[16] = ""; /* empty cell when the sample has no pressure */
+    char hum[16]   = ""; /* empty cell when the sample has no humidity */
+    if (!isnan(pressure_hpa))
+        snprintf(press, sizeof(press), "%.1f", (double)pressure_hpa);
+    if (!isnan(humidity_pct))
+        snprintf(hum, sizeof(hum), "%.1f", (double)humidity_pct);
+    char buf[96];
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ,%.2f,%s,%s\n",
              t.tm_year+1900, t.tm_mon+1, t.tm_mday,
-             t.tm_hour, t.tm_min, t.tm_sec, (double)temp_c);
+             t.tm_hour, t.tm_min, t.tm_sec, (double)temp_c, press, hum);
     httpd_resp_sendstr_chunk(ctx->req, buf);
 }
 
@@ -279,10 +339,80 @@ static esp_err_t api_history_csv(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/csv");
     httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"history.csv\"");
-    httpd_resp_sendstr_chunk(req, "timestamp_iso8601,temperature_c\n");
+    httpd_resp_sendstr_chunk(req,
+        "timestamp_iso8601,temperature_c,pressure_hpa,humidity_pct\n");
     hist_csv_ctx_t ctx = {.req = req};
     history_query(0, UINT32_MAX, hist_csv_cb, &ctx);
     httpd_resp_sendstr_chunk(req, NULL);
+    return ESP_OK;
+}
+
+/* ── GET /api/boot.log (feature 006) ──
+   Source of truth is /storage/boot.log; before the boot-log flush (or if the
+   flush failed) the live RAM capture is served instead, so view and download
+   always return the same bytes. 404 only when file AND buffer are empty. */
+static esp_err_t api_bootlog(httpd_req_t *req)
+{
+    char chunk[256];
+    FILE *f = fopen(BOOT_LOG_FILE_PATH, "r");
+    if (f) {
+        size_t n = fread(chunk, 1, sizeof(chunk), f);
+        if (n > 0) {
+            httpd_resp_set_type(req, "text/plain; charset=utf-8");
+            do {
+                httpd_resp_send_chunk(req, chunk, n);
+                n = fread(chunk, 1, sizeof(chunk), f);
+            } while (n > 0);
+            fclose(f);
+            httpd_resp_send_chunk(req, NULL, 0);
+            return ESP_OK;
+        }
+        fclose(f);
+    }
+
+    size_t len = 0;
+    const char *ram = boot_log_get(&len);
+    if (len > 0) {
+        httpd_resp_set_type(req, "text/plain; charset=utf-8");
+        httpd_resp_send(req, ram, len);
+        return ESP_OK;
+    }
+
+    httpd_resp_set_status(req, "404 Not Found");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"error\":\"not_found\"}");
+    return ESP_OK;
+}
+
+/* ── GET /api/ws — live-readings WebSocket (feature 009) ──
+   The handshake is completed by esp_http_server before this runs. On the
+   initial GET we register the socket with the broadcaster; subsequent frames
+   from the client are drained and ignored (the client never needs to send). */
+static esp_err_t api_ws(httpd_req_t *req)
+{
+    if (req->method == HTTP_GET) {
+        int fd = httpd_req_to_sockfd(req);
+        if (!ws_broadcast_add_client(fd)) {
+            httpd_ws_frame_t close = {.type = HTTPD_WS_TYPE_CLOSE};
+            httpd_ws_send_frame(req, &close);
+            return ESP_OK;
+        }
+        return ESP_OK;
+    }
+
+    httpd_ws_frame_t frame = {.type = HTTPD_WS_TYPE_TEXT};
+    esp_err_t err = httpd_ws_recv_frame(req, &frame, 0); /* length probe */
+    if (err != ESP_OK) return err;
+    if (frame.len) {
+        uint8_t *b = calloc(1, frame.len + 1);
+        if (b) {
+            frame.payload = b;
+            httpd_ws_recv_frame(req, &frame, frame.len);
+            free(b);
+        }
+    }
+    if (frame.type == HTTPD_WS_TYPE_CLOSE)
+        ws_broadcast_remove_client(httpd_req_to_sockfd(req));
     return ESP_OK;
 }
 
@@ -292,12 +422,24 @@ void register_mgmt_handlers(httpd_handle_t server)
         {.uri="/",                .method=HTTP_GET,  .handler=mgmt_page},
         {.uri="/mgmt.css",        .method=HTTP_GET,  .handler=mgmt_css},
         {.uri="/mgmt.js",         .method=HTTP_GET,  .handler=mgmt_js},
+        {.uri="/chart.js",        .method=HTTP_GET,  .handler=chart_js},
         {.uri="/api/status",      .method=HTTP_GET,  .handler=api_status},
         {.uri="/api/config",      .method=HTTP_PUT,  .handler=api_config_put},
         {.uri="/api/history",     .method=HTTP_GET,  .handler=api_history_get},
         {.uri="/api/history.csv", .method=HTTP_GET,  .handler=api_history_csv},
+        {.uri="/api/boot.log",    .method=HTTP_GET,  .handler=api_bootlog},
     };
-    for (int i = 0; i < 7; i++) httpd_register_uri_handler(server, &uris[i]);
+    for (int i = 0; i < 9; i++) httpd_register_uri_handler(server, &uris[i]);
+
+    httpd_uri_t ws = {
+        .uri          = "/api/ws",
+        .method       = HTTP_GET,
+        .handler      = api_ws,
+        .is_websocket = true,
+    };
+    httpd_register_uri_handler(server, &ws);
+
     register_timezones_handler(server);
+    register_i18n_handlers(server); /* language packs + /i18n.js */
     register_ota_handlers(server);
 }

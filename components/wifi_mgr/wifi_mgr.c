@@ -9,6 +9,7 @@
 #include "esp_mac.h"
 #include "apps/esp_sntp.h"
 #include "mdns.h"
+#include "lwip/ip4_addr.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -17,7 +18,6 @@
 
 #define TAG            "wifi_mgr"
 #define AP_MAX_CONN    4
-#define AP_IP_ADDR     "192.168.4.1"
 #define MAX_RETRIES    6   /* ~63 s total with exponential back-off */
 #define RETRY_BASE_MS  1000
 
@@ -172,11 +172,70 @@ wifi_state_t wifi_mgr_get_state(void)
     return s_state;
 }
 
+static void netif_ipv4_str(esp_netif_t *netif, char *buf, size_t len)
+{
+    esp_netif_ip_info_t ip_info = {};
+    if (netif && esp_netif_get_ip_info(netif, &ip_info) == ESP_OK && ip_info.ip.addr != 0) {
+        esp_ip4addr_ntoa(&ip_info.ip, buf, len);
+    }
+}
+
+void wifi_mgr_get_info(wifi_mgr_info_t *out)
+{
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+
+    /* Hostname is derived from the MAC and is meaningful in every state, even
+       before mDNS starts (it just won't resolve until STA is up). */
+    char suffix[5];
+    mac_to_suffix(suffix);
+    snprintf(out->hostname, sizeof(out->hostname), "weather-%s.local", suffix);
+
+    switch (s_state) {
+    case WIFI_ST_CONNECTED: {
+        wifi_ap_record_t ap = {};
+        if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+            strlcpy(out->ssid, (const char *)ap.ssid, sizeof(out->ssid));
+        }
+        netif_ipv4_str(s_sta_netif, out->ipv4, sizeof(out->ipv4));
+        break;
+    }
+    case WIFI_ST_PROVISIONING_AP:
+    case WIFI_ST_AP_FALLBACK: {
+        wifi_config_t ap_cfg = {};
+        if (esp_wifi_get_config(WIFI_IF_AP, &ap_cfg) == ESP_OK) {
+            strlcpy(out->ssid, (const char *)ap_cfg.ap.ssid, sizeof(out->ssid));
+        }
+        netif_ipv4_str(s_ap_netif, out->ipv4, sizeof(out->ipv4));
+        break;
+    }
+    case WIFI_ST_CONNECTING:
+    case WIFI_ST_RETRYING: {
+        wifi_config_t sta_cfg = {};
+        if (esp_wifi_get_config(WIFI_IF_STA, &sta_cfg) == ESP_OK) {
+            strlcpy(out->ssid, (const char *)sta_cfg.sta.ssid, sizeof(out->ssid));
+        }
+        break; /* no IP yet — ipv4 stays "" */
+    }
+    case WIFI_ST_IDLE:
+    default:
+        break; /* ssid and ipv4 stay "" */
+    }
+}
+
 void wifi_mgr_start(void)
 {
     ESP_ERROR_CHECK(esp_netif_init());
     s_sta_netif = esp_netif_create_default_wifi_sta();
     s_ap_netif  = esp_netif_create_default_wifi_ap();
+
+    esp_netif_dhcps_stop(s_ap_netif);
+    esp_netif_ip_info_t ap_ip_info = {};
+    IP4_ADDR(&ap_ip_info.ip,      WIFI_MGR_AP_IP_1, WIFI_MGR_AP_IP_2, WIFI_MGR_AP_IP_3, WIFI_MGR_AP_IP_4);
+    IP4_ADDR(&ap_ip_info.gw,      WIFI_MGR_AP_IP_1, WIFI_MGR_AP_IP_2, WIFI_MGR_AP_IP_3, WIFI_MGR_AP_IP_4);
+    IP4_ADDR(&ap_ip_info.netmask, 255, 255, 255, 0);
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(s_ap_netif, &ap_ip_info));
+    ESP_ERROR_CHECK(esp_netif_dhcps_start(s_ap_netif));
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));

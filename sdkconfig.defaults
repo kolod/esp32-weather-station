@@ -22,10 +22,13 @@ CONFIG_LITTLEFS_READ_SIZE=128
 CONFIG_LITTLEFS_WRITE_SIZE=128
 
 # LVGL (via esp_lvgl_port)
+# Two faces only: Montserrat 28 for all quadrant values (time, temperature,
+# pressure, humidity), Montserrat 14 (the LVGL default) for every label
+# (LOCAL/UTC, °C/°F, hPa, %). See components/display/ui.c.
 CONFIG_LV_USE_LOG=n
-CONFIG_LV_FONT_MONTSERRAT_20=y
-CONFIG_LV_FONT_MONTSERRAT_36=y
-CONFIG_LV_FONT_MONTSERRAT_48=y
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_14=y
 
 # TLS / HTTPS server
 CONFIG_ESP_HTTPS_SERVER_ENABLE=y
@@ -34,11 +37,20 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y
 
 # HTTP server request buffer large enough for OTA POST Content-Length header
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
-CONFIG_HTTPD_WS_SUPPORT=n
+# WebSocket support: live-readings push on the management page (feature 009)
+CONFIG_HTTPD_WS_SUPPORT=y
+
+# mbedTLS dynamic buffers — free the per-session in/out content buffers between
+# records so the larger management-server socket pool (feature 009) fits in SRAM
+CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
 
 # WiFi
 CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
 CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
+
+# LWIP — headroom for the larger management-server socket pool plus the
+# live-readings WebSockets (feature 009): 5 httpd sockets + listener + SNTP.
+CONFIG_LWIP_MAX_SOCKETS=16
 
 # SNTP
 CONFIG_LWIP_SNTP_MAX_SERVERS=2

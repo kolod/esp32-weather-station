@@ -1,5 +1,6 @@
 #include "mgmt_server.h"
 #include "handlers_mgmt.h"
+#include "ws_broadcast.h"
 #include "esp_https_server.h"
 #include "esp_log.h"
 #include <stdio.h>
@@ -47,7 +48,11 @@ esp_err_t mgmt_server_start(void)
     cfg.prvtkey_pem    = (const uint8_t *)key;
     cfg.prvtkey_len    = strlen(key) + 1;
     cfg.httpd.max_uri_handlers = 20;
-    cfg.httpd.max_open_sockets = 2; /* cap TLS sessions to bound heap */
+    /* feature 009: a live-readings WebSocket holds a socket open for the life of
+       the page; 5 covers ~4 viewers plus one transient request. See
+       specs/009-mgmt-page-redesign/plan.md Complexity Tracking. */
+    cfg.httpd.max_open_sockets = 5;
+    cfg.httpd.uri_match_fn     = httpd_uri_match_wildcard; /* i18n pack route */
 
     esp_err_t err = httpd_ssl_start(&s_server, &cfg);
     free(cert);
@@ -59,6 +64,7 @@ esp_err_t mgmt_server_start(void)
     }
 
     register_mgmt_handlers(s_server);
+    ws_broadcast_start(s_server); /* feature 009: live-readings push */
     ESP_LOGI(TAG, "HTTPS management server started on :443");
     return ESP_OK;
 }
@@ -66,6 +72,7 @@ esp_err_t mgmt_server_start(void)
 void mgmt_server_stop(void)
 {
     if (s_server) {
+        ws_broadcast_stop();
         httpd_ssl_stop(s_server);
         s_server = NULL;
         ESP_LOGI(TAG, "HTTPS management server stopped");

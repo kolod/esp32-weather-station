@@ -1,25 +1,10 @@
 'use strict';
 (async () => {
-  /* ── Load i18n strings (server injects the chosen lang via data-lang attribute on <html>) ── */
-  const lang = document.documentElement.dataset.lang || 'en';
-  let t = {};
-  try {
-    const r = await fetch(`/i18n/${lang}.json`);
-    t = await r.json();
-  } catch (_) { /* fallback: English strings already in HTML */ }
+  /* Static text is applied by /i18n.js (data-i18n attributes); t() covers
+     the dynamic status messages, with English fallbacks at each call site. */
+  const { t } = await window.i18nReady;
 
-  const $  = id => document.getElementById(id);
-  const setText = (id, key) => { if (t[key]) $( id).textContent = t[key]; };
-
-  setText('page-title', 'title');
-  setText('heading',    'heading');
-  setText('lbl-ssid',   'label_ssid');
-  setText('lbl-pass',   'label_password');
-  setText('lbl-tz',     'label_timezone');
-  setText('btn-scan',   'btn_scan');
-  setText('btn-submit', 'btn_submit');
-  $('ssid').placeholder     = t.placeholder_ssid     || '';
-  $('password').placeholder = t.placeholder_password || '';
+  const $ = id => document.getElementById(id);
 
   /* ── Populate timezone dropdown ── */
   try {
@@ -36,23 +21,23 @@
   /* ── WiFi scan ── */
   $('btn-scan').addEventListener('click', async () => {
     $('btn-scan').disabled = true;
-    showStatus('info', t.scanning || 'Scanning…');
+    showStatus('info', t('scanning', 'Scanning for networks…'));
     try {
       const nets = await (await fetch('/api/scan')).json();
       const dl = $('networks');
       dl.innerHTML = '';
       if (!nets.networks || nets.networks.length === 0) {
-        showStatus('info', t.no_networks || 'No networks found.'); return;
+        showStatus('info', t('no_networks', 'No networks found.')); return;
       }
       nets.networks.forEach(n => {
         const opt = document.createElement('option');
         opt.value = n.ssid;
-        opt.label = `${n.ssid} (${n.auth ? (t.secure || 'Secured') : (t.open || 'Open')})`;
+        opt.label = `${n.ssid} (${n.secure ? t('secure', 'Secured') : t('open', 'Open')})`;
         dl.appendChild(opt);
       });
       $('ssid').setAttribute('list', 'networks');
       hideStatus();
-    } catch (_) { showStatus('error', t.status_failed_generic || 'Scan failed.'); }
+    } catch (_) { showStatus('error', t('status_failed_generic', 'Scan failed.')); }
     finally { $('btn-scan').disabled = false; }
   });
 
@@ -64,7 +49,7 @@
     if (!ssid) return;
 
     $('btn-submit').disabled = true;
-    showStatus('info', t.status_connecting || 'Connecting…');
+    showStatus('info', t('status_connecting', 'Connecting…'));
 
     try {
       const resp = await fetch('/api/wifi', {
@@ -72,27 +57,27 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ssid, password: pass, tz_name: tz}),
       });
-      if (!resp.ok) { showStatus('error', t.status_failed_generic || 'Error.'); return; }
+      if (!resp.ok) { showStatus('error', t('status_failed_generic', 'Error.')); return; }
 
       /* Poll for result */
       for (let i = 0; i < 30; i++) {
         await delay(2000);
         const s = await (await fetch('/api/wifi/status')).json();
         if (s.state === 'connected') {
-          showStatus('success', `${t.status_success || 'Connected!'} <a href="https://weather-${s.suffix}.local">https://weather-${s.suffix}.local</a>`);
+          showStatus('success', `${t('status_success', 'Connected! Device is at:')} <a href="https://weather-${s.suffix}.local">https://weather-${s.suffix}.local</a>`);
           return;
         }
         if (s.state === 'failed') {
           const key = s.reason === 'auth'      ? 'status_failed_auth'
                     : s.reason === 'not_found' ? 'status_failed_not_found'
                     : 'status_failed_generic';
-          showStatus('error', t[key] || 'Connection failed.');
+          showStatus('error', t(key, 'Connection failed. Please try again.'));
           $('btn-submit').disabled = false;
           return;
         }
       }
-      showStatus('error', t.status_failed_generic || 'Timeout.');
-    } catch (_) { showStatus('error', t.status_failed_generic || 'Network error.'); }
+      showStatus('error', t('status_failed_generic', 'Timeout.'));
+    } catch (_) { showStatus('error', t('status_failed_generic', 'Network error.')); }
     finally { $('btn-submit').disabled = false; }
   });
 
