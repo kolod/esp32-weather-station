@@ -3,35 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title id="page-title">Weather Station Setup</title>
+<title id="page-title" data-i18n="title">Weather Station Setup</title>
 <link rel="stylesheet" href="/portal.css">
 </head>
 <body>
 <div class="card">
-  <h1 id="heading">WiFi Setup</h1>
+  <h1 id="heading" data-i18n="heading">WiFi Setup</h1>
 
   <div class="field">
-    <label id="lbl-ssid" for="ssid">Network name (SSID)</label>
+    <label id="lbl-ssid" for="ssid" data-i18n="label_ssid">Network name (SSID)</label>
     <div class="ssid-row">
-      <input id="ssid" type="text" autocomplete="off" spellcheck="false">
-      <button id="btn-scan" type="button">Scan</button>
+      <input id="ssid" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Select or type network name" data-i18n-placeholder="placeholder_ssid">
+      <button id="btn-scan" type="button" data-i18n="btn_scan">Scan</button>
     </div>
     <datalist id="networks"></datalist>
   </div>
 
   <div class="field">
-    <label id="lbl-pass" for="password">Password</label>
-    <input id="password" type="password" autocomplete="current-password">
+    <label id="lbl-pass" for="password" data-i18n="label_password">Password</label>
+    <input id="password" type="password" autocomplete="current-password"
+           placeholder="Network password" data-i18n-placeholder="placeholder_password">
   </div>
 
   <div class="field">
-    <label id="lbl-tz" for="timezone">Timezone</label>
+    <label id="lbl-tz" for="timezone" data-i18n="label_timezone">Timezone</label>
     <select id="timezone"></select>
   </div>
 
-  <button id="btn-submit" type="button">Connect</button>
+  <button id="btn-submit" type="button" data-i18n="btn_submit">Connect</button>
   <div id="status" class="status hidden"></div>
 </div>
+<script src="/i18n.js"></script>
 <script src="/portal.js"></script>
 </body>
 </html>

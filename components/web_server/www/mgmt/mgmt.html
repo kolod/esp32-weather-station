@@ -4,39 +4,66 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self'">
-<title>Weather Station</title>
+<title data-i18n="mgmt_title">Weather Station</title>
 <link rel="stylesheet" href="/mgmt.css">
 </head>
 <body>
-<header><h1>Weather Station</h1><span id="fw-version"></span></header>
+<header>
+  <div class="header-inner">
+    <h1 data-i18n="mgmt_title">Weather Station</h1>
+    <span id="fw-version"></span>
+  </div>
+</header>
 <main>
   <section class="card readings">
-    <h2>Current Readings</h2>
-    <div class="reading-row">
-      <span class="value" id="temp-val">---</span>
-      <span class="unit" id="temp-unit">°C</span>
-    </div>
-    <div class="reading-row time-row">
-      <span class="value-sm" id="time-val">--:--</span>
-      <span class="badge" id="time-sync"></span>
+    <h2 data-i18n="mgmt_heading_readings">Current Readings</h2>
+    <div class="readings-grid">
+      <div class="quarter" id="q-time">
+        <span class="q-label" data-i18n="mgmt_label_time">Time</span>
+        <span class="q-value">
+          <span class="value-sm" id="time-val">--:--</span>
+          <span class="badge" id="time-sync"></span>
+        </span>
+      </div>
+      <div class="quarter" id="q-temp">
+        <span class="q-label" data-i18n="mgmt_label_temperature">Temperature</span>
+        <span class="q-value">
+          <span class="value" id="temp-val">---</span>
+          <span class="unit" id="temp-unit">°C</span>
+        </span>
+      </div>
+      <div class="quarter" id="q-press">
+        <span class="q-label" data-i18n="mgmt_label_pressure">Pressure</span>
+        <span class="q-value">
+          <span class="value-sm" id="press-val">---</span>
+          <span class="unit">hPa</span>
+        </span>
+      </div>
+      <div class="quarter" id="q-hum">
+        <span class="q-label" data-i18n="mgmt_label_humidity">Humidity</span>
+        <span class="q-value">
+          <span class="value-sm" id="hum-val">---</span>
+          <span class="unit">%</span>
+        </span>
+      </div>
     </div>
     <div id="time-source"></div>
     <div id="wifi-status"></div>
   </section>
 
   <section class="card config">
-    <h2>Configuration</h2>
-    <label for="sel-tz">Timezone</label>
+    <h2 data-i18n="mgmt_heading_config">Configuration</h2>
+    <label for="sel-tz" data-i18n="mgmt_label_timezone">Timezone</label>
     <div class="row">
       <select id="sel-tz"></select>
-      <button id="btn-save-tz">Save</button>
+      <button id="btn-save-tz" data-i18n="mgmt_btn_save">Save</button>
     </div>
   </section>
 
   <section class="card ota">
-    <h2>Firmware Update</h2>
+    <h2 data-i18n="mgmt_heading_ota">Firmware Update</h2>
     <input type="file" id="fw-file" accept=".bin">
-    <button id="btn-upload" disabled>Upload</button>
+    <button id="btn-upload" disabled data-i18n="mgmt_btn_upload">Upload</button>
     <div id="ota-progress" class="hidden">
       <progress id="ota-bar" value="0" max="100"></progress>
       <span id="ota-pct">0%</span>
@@ -45,43 +72,55 @@
   </section>
 
   <section class="card history">
-    <h2>Temperature History</h2>
-    <div class="row">
-      <span id="hist-count">-- records</span>
-      <a id="btn-csv" href="/api/history.csv" download="history.csv">Download CSV</a>
+    <h2 data-i18n="mgmt_heading_history">History</h2>
+    <div class="period-sel" id="period-sel">
+      <button data-period="day"   class="active" data-i18n="mgmt_period_day">Day</button>
+      <button data-period="week"   data-i18n="mgmt_period_week">Week</button>
+      <button data-period="month"  data-i18n="mgmt_period_month">Month</button>
+      <button data-period="all"    data-i18n="mgmt_period_all">All</button>
     </div>
-    <div id="hist-table-wrap">
-      <table id="hist-table">
-        <thead><tr><th>Time</th><th>Temperature</th></tr></thead>
-        <tbody id="hist-body"></tbody>
-      </table>
+    <div class="chart-wrap">
+      <canvas id="hist-chart"></canvas>
     </div>
-    <button id="btn-load-hist">Load last 100 records</button>
+    <div id="hist-empty" class="hidden" data-i18n="mgmt_history_empty">No data for this period.</div>
+    <div class="history-foot">
+      <span id="hist-count"></span>
+      <a id="btn-csv" href="/api/history.csv" download="history.csv" data-i18n="mgmt_btn_csv">Download CSV</a>
+    </div>
+  </section>
+
+  <section class="card bootlog">
+    <h2 data-i18n="mgmt_heading_bootlog">Boot Log</h2>
+    <pre id="bootlog-content"></pre>
+    <div id="bootlog-unavailable" class="hidden" data-i18n="mgmt_bootlog_unavailable">Boot log not available.</div>
   </section>
 
   <section class="card help">
-    <h2>Help</h2>
-    <h3>Buttons</h3>
+    <h2 data-i18n="mgmt_heading_help">Help</h2>
+    <h3 data-i18n="mgmt_help_buttons_heading">Buttons</h3>
     <ul>
-      <li><strong>← (left)</strong> — toggles time display between LOCAL and UTC</li>
-      <li><strong>→ (right)</strong> — toggles temperature unit between °C and °F</li>
-      <li><strong>← hold 5 s</strong> — factory reset: clears saved WiFi credentials and reboots into setup hotspot</li>
+      <li><strong>←</strong> <span data-i18n="mgmt_help_btn_left">(left) — toggles time display between LOCAL and UTC</span></li>
+      <li><strong>→</strong> <span data-i18n="mgmt_help_btn_right">(right) — toggles temperature unit between °C and °F</span></li>
+      <li><strong>←</strong> <span data-i18n="mgmt_help_btn_reset">hold 5 s — factory reset: clears saved WiFi credentials and reboots into setup hotspot</span></li>
     </ul>
-    <h3>Install CA Certificate</h3>
+    <h3 data-i18n="mgmt_help_ca_heading">Install CA Certificate</h3>
     <ol>
-      <li>Obtain <code>ca.crt</code> from whoever set up your weather station.</li>
-      <li>Install it into your OS or browser trust store:
+      <li><span data-i18n="mgmt_help_ca_step1">Download the CA certificate from this device:</span> <a href="/ca.crt" download="ca.crt"><code>ca.crt</code></a></li>
+      <li><span data-i18n="mgmt_help_ca_step2">Install it into your OS or browser trust store:</span>
         <ul>
-          <li><strong>Windows</strong> — double-click → <em>Install Certificate</em> → <em>Trusted Root Certification Authorities</em></li>
-          <li><strong>macOS / iOS</strong> — open the file, trust it in <em>Keychain Access / Settings → General → VPN &amp; Device Management</em></li>
-          <li><strong>Android</strong> — <em>Settings → Security → Install a certificate → CA certificate</em></li>
-          <li><strong>Firefox</strong> — <em>Settings → Privacy &amp; Security → Certificates → Import</em></li>
+          <li><strong>Windows</strong> — <span data-i18n="mgmt_help_ca_windows">double-click → Install Certificate → Trusted Root Certification Authorities</span></li>
+          <li><strong>macOS / iOS</strong> — <span data-i18n="mgmt_help_ca_macos">open the file, trust it in Keychain Access / Settings → General → VPN &amp; Device Management</span></li>
+          <li><strong>Android</strong> — <span data-i18n="mgmt_help_ca_android">Settings → Security → Install a certificate → CA certificate</span></li>
+          <li><strong>Firefox</strong> — <span data-i18n="mgmt_help_ca_firefox">Settings → Privacy &amp; Security → Certificates → Import</span></li>
         </ul>
       </li>
-      <li>After installing, all weather stations signed by this CA will load without certificate warnings.</li>
+      <li><span data-i18n="mgmt_help_ca_step3">After installing, all weather stations signed by this CA will load without certificate warnings.</span></li>
     </ol>
+    <p class="help-footer">Oleksandr Kolodkin © 2026 <a href="https://github.com/kolod/esp32-weather-station" target="_blank" rel="noopener">esp32-weather-station</a> — <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPL v3.0</a></p>
   </section>
 </main>
+<script src="/i18n.js"></script>
+<script src="/chart.js"></script>
 <script src="/mgmt.js"></script>
 </body>
 </html>

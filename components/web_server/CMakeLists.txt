@@ -3,6 +3,7 @@ idf_component_register(
         "web_server.c"
         "portal_server.c"
         "mgmt_server.c"
+        "ws_broadcast.c"
         "i18n.c"
         "handlers_common.c"
         "handlers_mgmt.c"
@@ -10,11 +11,13 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES esp_http_server esp_https_server esp_event settings history
              app_ctx captive_dns wifi_mgr esp_wifi esp_netif app_update esp_timer vfs
-             rtc_time
+             rtc_time boot_log
     EMBED_FILES
         "www/portal/index.html"
         "www/portal/portal.css"
         "www/portal/portal.js"
+        "www/common/i18n.js"
+        "www/common/chart.js"
         "www/i18n/en.json"
         "www/i18n/de.json"
         "www/i18n/fr.json"

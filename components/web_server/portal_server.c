@@ -1,6 +1,5 @@
 #include "portal_server.h"
 #include "handlers_common.h"
-#include "i18n.h"
 #include "wifi_mgr.h"
 #include "settings.h"
 #include "esp_http_server.h"
@@ -34,13 +33,13 @@ static bool json_str(const char *json, const char *key, char *out, size_t len)
 
 #define TAG "portal"
 
-/* Embedded assets injected via CMakeLists EMBED_FILES */
-extern const uint8_t portal_html_gz_start[] asm("_binary_index_html_start");
-extern const uint8_t portal_html_gz_end[]   asm("_binary_index_html_end");
-extern const uint8_t portal_css_gz_start[]  asm("_binary_portal_css_start");
-extern const uint8_t portal_css_gz_end[]    asm("_binary_portal_css_end");
-extern const uint8_t portal_js_gz_start[]   asm("_binary_portal_js_start");
-extern const uint8_t portal_js_gz_end[]     asm("_binary_portal_js_end");
+/* Embedded assets injected via CMakeLists EMBED_FILES (stored uncompressed) */
+extern const uint8_t portal_html_start[] asm("_binary_index_html_start");
+extern const uint8_t portal_html_end[]   asm("_binary_index_html_end");
+extern const uint8_t portal_css_start[]  asm("_binary_portal_css_start");
+extern const uint8_t portal_css_end[]    asm("_binary_portal_css_end");
+extern const uint8_t portal_js_start[]   asm("_binary_portal_js_start");
+extern const uint8_t portal_js_end[]     asm("_binary_portal_js_end");
 
 static httpd_handle_t s_server = NULL;
 
@@ -48,7 +47,7 @@ static httpd_handle_t s_server = NULL;
 static esp_err_t captive_redirect(httpd_req_t *req)
 {
     httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_set_hdr(req, "Location", "http://" WIFI_MGR_AP_IP_STR "/");
     httpd_resp_sendstr(req, "");
     return ESP_OK;
 }
@@ -56,24 +55,9 @@ static esp_err_t captive_redirect(httpd_req_t *req)
 /* ── Portal page (GET /) ── */
 static esp_err_t portal_page(httpd_req_t *req)
 {
-    char accept_lang[64] = "";
-    httpd_req_get_hdr_value_str(req, "Accept-Language", accept_lang, sizeof(accept_lang));
-
     char lang[3];
-    accept_language_pick(accept_lang, lang, sizeof(lang));
-
-    /* Serve gzip-compressed HTML; inject lang attribute via minimal edit is complex,
-       so the JS reads the lang from the data-lang attribute we set via a tiny inline script. */
-    char lang_hdr[32];
-    snprintf(lang_hdr, sizeof(lang_hdr), "%s", lang);
-
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    httpd_resp_set_hdr(req, "Content-Language", lang_hdr);
-    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
-
-    size_t len = portal_html_gz_end - portal_html_gz_start;
-    httpd_resp_send(req, (const char *)portal_html_gz_start, len);
-    return ESP_OK;
+    pick_request_lang(req, lang);
+    return send_html_lang_patched(req, portal_html_start, portal_html_end, lang);
 }
 
 /* ── Serve CSS/JS assets ── */
@@ -81,16 +65,16 @@ static esp_err_t portal_css(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/css");
     httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
-    httpd_resp_send(req, (const char *)portal_css_gz_start,
-                    portal_css_gz_end - portal_css_gz_start);
+    httpd_resp_send(req, (const char *)portal_css_start,
+                    portal_css_end - portal_css_start);
     return ESP_OK;
 }
 static esp_err_t portal_js(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "application/javascript");
     httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");
-    httpd_resp_send(req, (const char *)portal_js_gz_start,
-                    portal_js_gz_end - portal_js_gz_start);
+    httpd_resp_send(req, (const char *)portal_js_start,
+                    portal_js_end - portal_js_start);
     return ESP_OK;
 }
 
@@ -234,9 +218,10 @@ esp_err_t portal_server_start(void)
 
     /* Captive portal probes */
     const char *probe_uris[] = {"/generate_204", "/gen_204",
-                                  "/hotspot-detect.html", "/connecttest.txt", "/ncsi.txt"};
+                                  "/hotspot-detect.html", "/connecttest.txt", "/ncsi.txt",
+                                  "/redirect"};
     httpd_uri_t probe_uri = {.method = HTTP_GET, .handler = captive_redirect};
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
         probe_uri.uri = probe_uris[i];
         httpd_register_uri_handler(s_server, &probe_uri);
     }
@@ -251,6 +236,7 @@ esp_err_t portal_server_start(void)
     };
     for (int i = 0; i < 6; i++) httpd_register_uri_handler(s_server, &uris[i]);
     register_timezones_handler(s_server);
+    register_i18n_handlers(s_server); /* language packs + /i18n.js */
 
     ESP_LOGI(TAG, "Portal HTTP server started on :80");
     return ESP_OK;
