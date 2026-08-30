@@ -26,7 +26,10 @@ Always-on display of current time, temperature, pressure and humidity, built wit
 
 ## Requirements
 
-- ESP-IDF **v6.0.2** (set up and exported)
+- ESP-IDF **v6.1** (set up and exported). Upgrading from v6.0.x: delete the gitignored
+  `sdkconfig` (or run `idf.py fullclean`) so it regenerates from `sdkconfig.defaults` —
+  a stale `sdkconfig` can silently drop `CONFIG_HTTPD_WS_SUPPORT` and break the live
+  WebSocket.
 - PowerShell (CA tooling in `tools/ca/`)
 - OpenSSL (used by CA scripts)
 

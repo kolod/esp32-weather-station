@@ -1,7 +1,15 @@
 <!--
 ## Sync Impact Report
 
-**Version change**: (blank template) → 1.0.0
+**Version change**: 1.0.0 → 1.0.1
+**Rationale**: PATCH — Principle III target toolchain updated ESP-IDF v6.0.2 → v6.1
+(non-semantic version refresh); added a note that `sdkconfig` must be regenerated on
+an IDF minor bump. No principle added, removed, or redefined.
+**Templates**: no changes required (no template references the IDF version).
+**Follow-ups**: README hardware/setup section updated to v6.1 in the same change.
+
+---
+### Prior: (blank template) → 1.0.0
 **Rationale**: MINOR bump from template placeholders to first substantive version; all sections newly authored.
 
 ### Modified Principles
@@ -75,8 +83,11 @@ Every commit merged to `main` MUST produce a clean `idf.py build` with zero comp
 and zero warnings. Warnings MUST NOT be silenced with pragmas unless accompanied by a comment
 explaining the upstream defect and linking to the IDF issue tracker.
 
-The target toolchain is ESP-IDF v6.0.2 with the `esp32` target. Any change to `sdkconfig`
-defaults MUST be accompanied by a verified rebuild.
+The target toolchain is ESP-IDF v6.1 with the `esp32` target. Any change to `sdkconfig`
+defaults MUST be accompanied by a verified rebuild. When bumping the ESP-IDF minor
+version, the gitignored `sdkconfig` MUST be regenerated from `sdkconfig.defaults`
+(delete it, or `idf.py fullclean`) — a stale `sdkconfig` silently overrides renamed or
+newly-defaulted options (e.g. it has masked `CONFIG_HTTPD_WS_SUPPORT` before).
 
 **Rationale**: Embedded firmware that does not compile is completely non-functional. This gate
 is the minimum bar for any change landing on `main`.
@@ -165,4 +176,4 @@ component's README or inline comments in the event of conflict.
 before implementation. Complexity violations (Principle IV exceptions, security exceptions)
 MUST be documented in the Complexity Tracking table of the relevant plan.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-07-21
+**Version**: 1.0.1 | **Ratified**: 2026-07-21 | **Last Amended**: 2026-08-30
