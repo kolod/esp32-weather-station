@@ -385,18 +385,14 @@ static esp_err_t api_bootlog(httpd_req_t *req)
 }
 
 /* ── GET /api/ws — live-readings WebSocket (feature 009) ──
-   The handshake is completed by esp_http_server before this runs. On the
-   initial GET we register the socket with the broadcaster; subsequent frames
-   from the client are drained and ignored (the client never needs to send). */
+   esp_http_server completes the handshake before this runs; on the handshake
+   request (HTTP_GET) there is nothing to do — ws_broadcast discovers clients
+   from the server directly. The client never needs to send, so any frame that
+   does arrive is just drained. Dead sockets are pruned by ws_broadcast via
+   httpd_ws_get_fd_info() / send failure. */
 static esp_err_t api_ws(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
-        int fd = httpd_req_to_sockfd(req);
-        if (!ws_broadcast_add_client(fd)) {
-            httpd_ws_frame_t close = {.type = HTTPD_WS_TYPE_CLOSE};
-            httpd_ws_send_frame(req, &close);
-            return ESP_OK;
-        }
         return ESP_OK;
     }
 
@@ -411,8 +407,6 @@ static esp_err_t api_ws(httpd_req_t *req)
             free(b);
         }
     }
-    if (frame.type == HTTPD_WS_TYPE_CLOSE)
-        ws_broadcast_remove_client(httpd_req_to_sockfd(req));
     return ESP_OK;
 }
 
