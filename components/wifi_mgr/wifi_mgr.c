@@ -79,9 +79,22 @@ static void stop_ap(void)
 static void start_sntp(void)
 {
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    /* Slew small post-restore offsets instead of stepping, so the displayed
-       time never visibly jumps; offsets beyond the lwIP threshold still step */
-    esp_sntp_set_sync_mode(SNTP_SYNC_MODE_SMOOTH);
+    /* Step the clock on every sync (the lwIP default).
+     *
+     * SNTP_SYNC_MODE_SMOOTH is unusable on ESP-IDF 6.1: its "step immediately
+     * when the offset is too large to slew" fallback depends on adjtime()
+     * returning -1 for a big delta. In 6.1 adjtime() first narrows
+     * `delta->tv_sec * 1000000` into the 32-bit `long` of `struct timex.offset`
+     * and only range-checks afterwards, so a cold-boot 1970 -> now correction
+     * (~1.8e15 us) overflows to a small value, is accepted for slewing, and is
+     * never actually applied — SNTP reports "synchronized" while the clock
+     * stays at 1970 / shows 00:00. (Worked on 6.0.2, whose adjtime() checked
+     * the raw 64-bit seconds before narrowing.)
+     *
+     * The smooth-slew benefit is negligible here anyway: feature 002's RTC
+     * restore already prevents the visible jump at boot, and routine hourly
+     * re-sync offsets are sub-second — invisible on an HH:MM display. */
+    esp_sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
     esp_sntp_setservername(0, "pool.ntp.org");
     esp_sntp_setservername(1, "time.cloudflare.com");
     esp_sntp_init();
