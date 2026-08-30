@@ -72,12 +72,22 @@
   </section>
 
   <section class="card history">
-    <h2 data-i18n="mgmt_heading_history">History</h2>
+    <div class="hist-head">
+      <h2 data-i18n="mgmt_heading_history">History</h2>
+      <div class="hist-head-btns">
+        <button id="btn-reset-zoom" type="button" hidden data-i18n="mgmt_plot_reset_zoom">Reset zoom</button>
+        <button id="btn-fullscreen" type="button" data-i18n="mgmt_plot_fullscreen">Fullscreen</button>
+      </div>
+    </div>
     <div class="period-sel" id="period-sel">
       <button data-period="day"   class="active" data-i18n="mgmt_period_day">Day</button>
       <button data-period="week"   data-i18n="mgmt_period_week">Week</button>
       <button data-period="month"  data-i18n="mgmt_period_month">Month</button>
       <button data-period="all"    data-i18n="mgmt_period_all">All</button>
+      <button id="btn-prev" type="button" class="nav-btn">◀</button>
+      <button id="btn-next" type="button" class="nav-btn">▶</button>
+      <span id="hist-range"></span>
+      <button id="btn-live" type="button" class="live-btn" data-i18n="mgmt_plot_live">Live</button>
     </div>
     <div class="chart-wrap">
       <canvas id="hist-chart"></canvas>

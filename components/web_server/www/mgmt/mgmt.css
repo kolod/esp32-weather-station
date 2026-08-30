@@ -40,12 +40,39 @@ progress{width:100%;height:8px;border-radius:4px}
 .hidden{display:none}
 
 /* ── History plot ── */
-.period-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.hist-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
+           flex-wrap:wrap;border-bottom:1px solid #1e3a5f;margin-bottom:14px}
+.hist-head h2{border-bottom:none;margin-bottom:0}
+.hist-head-btns{display:flex;gap:6px;flex-shrink:0}
+.hist-head-btns button{background:#1e3a5f;color:#90caf9;padding:5px 10px;font-size:.8rem}
+.period-sel{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .period-sel button{background:#1e3a5f;color:#90caf9;padding:5px 12px;font-size:.85rem}
 .period-sel button.active{background:#4fc3f7;color:#0a0a1a}
-.chart-wrap{width:100%;overflow-x:auto}
-#hist-chart{width:100%;height:220px;display:block}
+.period-sel button:disabled{opacity:.35;cursor:not-allowed}
+.period-sel .nav-btn{padding:5px 9px;line-height:1}
+#hist-range{font-size:.8rem;color:#90caf9;opacity:.85}
+.period-sel .live-btn{margin-left:auto}
+.chart-wrap{position:relative;width:100%}
+#hist-chart{width:100%;height:220px;display:block;touch-action:none}
 #hist-empty{font-size:.9rem;color:#5a7a9f;padding:24px 0;text-align:center}
+
+/* crosshair tooltip (built by chart.js, positioned via CSSOM) */
+.chart-tip{position:absolute;pointer-events:none;z-index:5;background:#0a1428;
+           border:1px solid #2a4070;border-radius:6px;padding:6px 8px;font-size:.78rem;
+           color:#e0e0e0;line-height:1.35;box-shadow:0 2px 8px rgba(0,0,0,.4);max-width:60%}
+.chart-tip-t{color:#90caf9;font-weight:600;margin-bottom:3px}
+.chart-tip-r{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.chart-tip-r i{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+/* fullscreen plot: hide everything else, let the chart fill the viewport */
+body.plot-fullscreen{overflow:hidden}
+body.plot-fullscreen>header,
+body.plot-fullscreen main>:not(.history){display:none}
+body.plot-fullscreen main{margin:0;padding:0;max-width:none}
+body.plot-fullscreen .card.history{position:fixed;inset:0;z-index:50;margin:0;border:0;
+           border-radius:0;overflow:auto;display:flex;flex-direction:column}
+body.plot-fullscreen .chart-wrap{flex:1;min-height:0}
+body.plot-fullscreen #hist-chart{height:100%}
 .history-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;
               flex-wrap:wrap;margin-top:14px}
 #hist-count{font-size:.85rem;color:#90caf9}
